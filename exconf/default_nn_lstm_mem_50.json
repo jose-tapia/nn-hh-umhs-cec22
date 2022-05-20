@@ -1,6 +1,6 @@
 {
   "ex_config": {
-    "experiment_name": "default_nn_lstm_cut_pad_60",
+    "experiment_name": "default_nn_lstm_mem_50",
     "experiment_type": "neural_network",
     "heuristic_collection_file": "default.txt",
     "use_parallel": true,
@@ -21,7 +21,7 @@
     "model_params": {
       "load_model": false,
       "save_model": true,
-      "memory_length": 60,
+      "memory_length": 50,
       "encoder" : "default",
       "epochs": 100, 
       "model_architecture": "LSTM",

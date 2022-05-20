@@ -1,6 +1,6 @@
 {
   "ex_config": {
-    "experiment_name": "default_nn_lstm_demo",
+    "experiment_name": "demo_default_nn_lstm_vl",
     "experiment_type": "neural_network",
     "heuristic_collection_file": "default.txt",
     "use_parallel": true,
@@ -21,10 +21,9 @@
     "model_params": {
       "load_model": false,
       "save_model": false,
-      "memory_length": 25,
       "encoder" : "default",
       "epochs": 5, 
-      "model_architecture": "LSTM",
+      "model_architecture": "LSTM_Ragged",
       "model_architecture_layers": [
         [20, "sigmoid", "LSTM"]
       ],

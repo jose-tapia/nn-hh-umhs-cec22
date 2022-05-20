@@ -1,6 +1,6 @@
 {
   "ex_config": {
-    "experiment_name": "default_nn_lstm_variable_length",
+    "experiment_name": "default_nn_lstm_mem_70",
     "experiment_type": "neural_network",
     "heuristic_collection_file": "default.txt",
     "use_parallel": true,
@@ -20,10 +20,11 @@
     "tabu_idx": 5,
     "model_params": {
       "load_model": false,
-      "save_model": false,
+      "save_model": true,
+      "memory_length": 70,
       "encoder" : "default",
       "epochs": 100, 
-      "model_architecture": "LSTM_Ragged",
+      "model_architecture": "LSTM",
       "model_architecture_layers": [
         [20, "sigmoid", "LSTM"]
       ],
