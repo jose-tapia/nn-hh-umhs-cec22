@@ -192,14 +192,10 @@ class Experiment:
                                 file_label=label, weights_array=weights)
 
         # Run the HH according to the specified type
-        if self.exp_config['experiment_type'] in ["brute_force", 'bf']:
-            hh.brute_force()
-        elif self.exp_config['experiment_type'] == ["basic_metaheuristics", 'bmh']:
+        if self.exp_config['experiment_type'] == ["basic_metaheuristics", 'bmh']:
             hh.basic_metaheuristics()
         elif self.exp_config['experiment_type'] in ["online_learning", 'dynamic']:
             _ = hh.solve('dynamic')
-        elif self.exp_config['experiment_type'] in ["transfer_learning"]:
-            _ = hh.solve()
         elif self.exp_config['experiment_type'] in ["machine_learning", 'neural_network']:
             _ = hh.solve('neural_network')
         else:  # 'static_run'

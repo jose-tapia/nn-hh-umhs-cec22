@@ -81,24 +81,24 @@ class Hyperheuristic:
 
         # Assign default values
         if not parameters:
-            parameters = dict(cardinality=3,  # Max. numb. of SOs in MHs, lvl:1
-                              cardinality_min=1,  # Min. numb. of SOs in MHs, lvl:1
-                              num_iterations=100,  # Iterations a MH performs, lvl:1
-                              num_agents=30,  # Agents in population,     lvl:1
-                              as_mh=False,  # HH sequence as a MH?,     lvl:2
-                              num_replicas=50,  # Replicas per each MH,     lvl:2
-                              num_steps=200,  # Trials per HH step,       lvl:2
-                              stagnation_percentage=0.37,  # Stagnation percentage,    lvl:2
-                              max_temperature=1,  # Initial temperature (SA), lvl:2
-                              min_temperature=1e-6,  # Min temperature (SA),     lvl:2
-                              cooling_rate=1e-3,  # Cooling rate (SA),        lvl:2
-                              temperature_scheme='fast',  # Temperature updating (SA),lvl:2 *new
+            parameters = dict(cardinality=3,                    # Max. numb. of SOs in MHs, lvl:1
+                              cardinality_min=1,                # Min. numb. of SOs in MHs, lvl:1
+                              num_iterations=100,               # Iterations a MH performs, lvl:1
+                              num_agents=30,                    # Agents in population,     lvl:1
+                              as_mh=False,                      # HH sequence as a MH?,     lvl:2
+                              num_replicas=50,                  # Replicas per each MH,     lvl:2
+                              num_steps=200,                    # Trials per HH step,       lvl:2
+                              stagnation_percentage=0.37,       # Stagnation percentage,    lvl:2
+                              max_temperature=1,                # Initial temperature (SA), lvl:2
+                              min_temperature=1e-6,             # Min temperature (SA),     lvl:2
+                              cooling_rate=1e-3,                # Cooling rate (SA),        lvl:2
+                              temperature_scheme='fast',        # Temperature updating (SA),lvl:2 *new
                               acceptance_scheme='exponential',  # Acceptance mode,          lvl:2 *new
-                              allow_weight_matrix=True,  # Weight matrix,            lvl:2 *new
-                              trial_overflow=False,  # Trial overflow policy,    lvl:2 *new
-                              learnt_dataset=None,  # If it is a learnt dataset related with the heuristic space
-                              repeat_operators=True,  # Allow repeating SOs inSeq,lvl:2
-                              verbose=True,  # Verbose process,          lvl:2
+                              allow_weight_matrix=True,         # Weight matrix,            lvl:2 *new
+                              trial_overflow=False,             # Trial overflow policy,    lvl:2 *new
+                              learnt_dataset=None,              # If it is a learnt dataset related with the heuristic space
+                              repeat_operators=True,            # Allow repeating SOs inSeq,lvl:2
+                              verbose=True,                     # Verbose process,          lvl:2
                               learning_portion=0.37,
                               solver='static'
                               )
@@ -212,7 +212,6 @@ class Hyperheuristic:
 
         :return: list.
         """
-        # TODO: fix active set to all the possible candidate approaches
 
         # Create a new MH with min_cardinality from scratch by using a weights array (if so)
         # if action is given, it is assumed the way of obtaining this intial solution
@@ -452,12 +451,6 @@ class Hyperheuristic:
 
         if mode == 'dynamic':
             return self._solve_dynamic()
-        if mode == 'static_transfer_learning':
-            return self._solve_static_translearn()
-        if mode == 'dynamic_transfer_learning':
-            return self._solve_dynamic_translearn()
-        if mode == 'hybrid_transfer_learning':
-            return self._solve_hybrid_translearn()
         elif mode == 'neural_network':
             return self._solve_neural_network()
         else:  # default: 'static'
@@ -582,292 +575,6 @@ class Hyperheuristic:
 
         # Return the best solution found and its details
         return best_solution, best_performance, historical_current, historical_best
-
-    def _solve_static_translearn(self):
-    
-        # Check if there is a previous weight matrix stored
-        self.weight_matrix = self.__check_learnt_dataset()
-
-        # Obtain an initial guess sequence by choosing the operators with the maximal likelihood for each step
-        if self.__current_sequence is None:
-            current_solution = self._obtain_candidate_solution(action="max_frequency", operators_weights=self.weight_matrix)
-        else:
-            current_solution = self.__current_sequence
-
-        # Evaluate this candidate solution
-        current_performance, current_details = self.evaluate_candidate_solution(current_solution)
-
-        # Initialise some additional variables
-        initial_energy = np.abs(current_performance) + 1  # np.copy(current_performance)
-        historical_current = [current_performance]
-        historical_best = [current_performance]
-
-        # SELECTOR: Initialise the best solution and its performance
-        best_solution = np.copy(current_solution)
-        best_performance = current_performance
-
-        # Save this historical register, step = 0
-        _save_step(0, dict(encoded_solution=best_solution, performance=best_performance,
-                           details=current_details), self.file_label)
-
-        # Initialise final counter
-        fitness_per_repetition = list()
-        sequence_per_repetition = list()
-        weights_per_repetition = list()
-
-        # Step, stagnation counter and its maximum value
-        step = 0
-        stag_counter = 0
-        action = None
-        temperature = self.parameters['max_temperature']
-
-        # Define the available actions to use in the process
-        # actions = ['Add', 'AddMany', 'Remove', 'RemoveMany', 'Shift', 'LocalShift', 'Swap', 'RollMany']
-        actions = ['RemoveLast', 'Add', 'RemoveMany', 'Swap', 'ShiftMany', 'ShiftMany']
-
-        # ['Add', 'AddMany', 'Remove', 'Shift', 'LocalShift', 'Swap', 'Restart',
-        #  'Mirror', 'Roll', 'RollMany']
-
-        # Print the first status update, step = 0
-        if self.parameters['verbose']:
-            print('{} :: Step: {:4d}, Action: {:12s}, Card: {:3d}, Perf: {:.2e} [Initial]'.format(
-                self.file_label, step, 'None', len(current_solution), current_performance))
-
-        # Perform a metaheuristic as a hyper-heuristic process
-        while not self._check_finalisation(step, stag_counter):
-            # Update step and temperature
-            step += 1
-
-            weight_vector = self.weight_matrix[step - 1, :] if step < self.weight_matrix.shape[0] else None
-
-            # Generate a neighbour solution (just indices-codes)
-            action = self._choose_action(len(current_solution), action, available_options=actions)
-            candidate_solution = self._obtain_candidate_solution(
-                sol=current_solution, action=action, operators_weights=weight_vector, top=5)
-
-            # Evaluate this candidate solution
-            candidate_performance, candidate_details = self.evaluate_candidate_solution(candidate_solution)
-
-            # Print update
-            if self.parameters['verbose']:
-                print('{} :: Step: {:4d}, Action: {:12s}, Card: {:3d}, '.format(
-                    self.file_label, step, action, len(candidate_solution)) +
-                      'candPerf: {:.2e}, currPerf: {:.2e}, bestPerf: {:.2e}'.format(
-                          candidate_performance, current_performance, best_performance), end=' ')
-
-            # Accept the current solution using a given acceptance_scheme (= 'greedy' -> default option)
-            if self._check_acceptance(candidate_performance - current_performance):
-
-                # Update the current solution and its performance
-                current_solution = np.copy(candidate_solution)
-                current_performance = candidate_performance
-
-                # Add acceptance mark
-                if self.parameters['verbose']:
-                    print('A', end='')
-
-            # If the candidate solution is better or equal than the current best solution
-            if candidate_performance <= best_performance:
-                # Update the best solution and its performance
-                best_solution = np.copy(candidate_solution)
-                best_performance = candidate_performance
-
-                # Reset the stagnation counter
-                stag_counter = 0
-
-                # Save this information
-                _save_step(step, {
-                    'encoded_solution': best_solution,
-                    'performance': best_performance,
-                    'details': candidate_details
-                }, self.file_label)
-
-                # Add improvement mark
-                if self.parameters['verbose']:
-                    print('+', end='')
-            else:
-                # Update the stagnation counter
-                stag_counter += 1
-
-            # Get new information into some lists
-            fitness_per_repetition.append(candidate_details["fitness"])
-            sequence_per_repetition.append(best_solution)
-
-            # Update weights
-            # self._update_weights()
-
-            historical_current.append(current_performance)
-            historical_best.append(best_performance)
-            # Add ending mark
-            if self.parameters['verbose']:
-                print('')
-
-        # Print the best one
-        if self.parameters['verbose']:
-            print('\nBEST --> Perf: {}, e-Sol: {}'.format(best_performance, best_solution))
-
-        # Return the best solution found and its details
-        return fitness_per_repetition, sequence_per_repetition  # , weights_per_repetition  # to add weight_matrix
-
-    def _solve_dynamic_translearn(self):
-        self.weight_matrix = self.__check_learnt_dataset()
-        return self._solve_dynamic()
-
-    def _solve_hybrid_translearn(self):
-        """
-        Run the hyper-heuristic based on Simulated Annealing (SA) to find the best metaheuristic. Each meatheuristic is
-        run 'num_replicas' times to obtain statistics and then its performance. Once the process ends, it returns:
-            - solution: The sequence of search operators that compose the metaheuristic.
-            - performance: The metric value defined in ``get_performance``.
-            - encoded_solution: The sequence of indices that correspond to the search operators.
-            - historicals: A dictionary of information from each step. Its keys are: 'step', 'encoded_solution',
-            'solution', 'performances', and 'details'. The latter, 'details', is also a dictionary which contains
-            information about each replica carried out with the metaheuristic. Its fields are 'historical' (each
-            iteration that the metaheuristic has performed), 'fitness', 'positions', and 'statistics'.
-
-        :returns: solution (list), performance (float), encoded_solution (list)
-
-        TODO: Update
-        """
-        sequence_per_repetition = list()
-        fitness_per_repetition = list()
-        weights_per_repetition = list()
-        unfolded_metaheuristic = list()
-
-        weight_matrix = self.__check_learnt_dataset()
-
-        for rep in range(1):  # self.parameters['num_replicas']):
-            # Call the metaheuristic
-            # mh = None
-            mh = Metaheuristic(self.problem, num_agents=self.parameters['num_agents'],
-                               num_iterations=self.num_iterations)
-
-            # %% INITIALISER PART
-            mh.apply_initialiser()
-
-            # Extract the population and fitness vealues, and their best values
-            current_fitness = np.copy(mh.pop.global_best_fitness)
-            current_position = np.copy(mh.pop.rescale_back(mh.pop.global_best_position))
-
-            # Heuristic sets
-            self.current_space = np.arange(self.num_operators)
-
-            # Initialise some additional variables
-            candidate_enc_so = -1  # This is a list of up to 1-length
-            unfolded_metaheuristic = [-1]
-
-            best_fitness = [current_fitness]
-            best_position = [current_position]
-            current_fitness_data = np.copy(mh.pop.fitness)
-            current_positions_data = np.copy(mh.pop.get_positions())
-            fitness_data = [current_fitness_data]
-            positions_data = [current_positions_data]
-
-            step = 0
-            stag_counter = 0
-            trial_overflow = False
-            # FINALISATOR: Finalise due to other concepts
-
-            while not self._check_finalisation(step, stag_counter):
-                candidate_fitness_per_trial = list()
-                # candidate_position_per_trial = list()
-                # candidate_fitness_data_per_trial = list()
-                # candidate_positions_data_per_trial = list()
-
-                # Update the current set
-                if not trial_overflow:
-                    # candidate_operators_per_step = self.__get_argfrequencies(weight_matrix[step, :], 20)
-                    candidate_operators_per_step = self._obtain_candidate_solution(
-                        sol=10, operators_weights=weight_matrix[step, :])
-                else:
-                    # Pick randomly a simple heuristic
-                    candidate_operators_per_step = self._obtain_candidate_solution(sol=10)
-
-                # Try a few of search operators from the weight array for this step
-                trial_overflow = True
-                for trial, operator_to_test in enumerate(candidate_operators_per_step):
-                    # Prepare before evaluate the last search operator and apply it
-                    candidate_search_operator = self.get_operators([operator_to_test])
-                    perturbators, selectors = Operators.process_operators(candidate_search_operator)
-
-                    mh.apply_search_operator(perturbators[0], selectors[0])
-
-                    # Extract the population and fitness values, and their best values
-                    candidate_fitness_per_trial.append(np.copy(mh.pop.global_best_fitness))
-
-                    # Revert the modification to the population in the mh object
-                    mh.pop.revert_positions()
-
-                    # Print update
-                    # if self.parameters['verbose']:
-                    #     print('\tTrial: {:3d}, candPerf: {:.2e}, currPerf: {:.2e}'.format(
-                    #         trial + 1, candidate_fitness_per_trial[-1], current_fitness))
-
-                # Check if there is a candidate that improves the current value (with a prob. acceptance)
-                if self._check_acceptance(min(candidate_fitness_per_trial) - current_fitness):
-                    # Pick the corresponding index
-                    chosen_trial = np.argmin(candidate_fitness_per_trial)
-                    current_fitness = np.min(candidate_fitness_per_trial)
-
-                    # Update the current variables
-                    candidate_enc_so = candidate_operators_per_step[chosen_trial]
-
-                # Print update
-                if self.parameters['verbose']:
-                    print(
-                        f"{self.file_label} :: Rep: {rep:3d}, Step: {step + 1:3d}, Stag: {stag_counter:3d}, " +
-                        f"SO: {candidate_enc_so:4d}, bestPerf: {best_fitness[-1]:.2e}, " +
-                        f"currPerf: {float(current_fitness):.2e}", end=' ')
-
-                # If the candidate solution is better or equal than the current best solution
-                if current_fitness < best_fitness[-1]:
-                    # Update the current sequence and its characteristics
-                    unfolded_metaheuristic.append(candidate_enc_so)
-
-                    # Apply permanently the search operator
-                    candidate_search_operator = self.get_operators([candidate_enc_so])
-                    perturbators, selectors = Operators.process_operators(candidate_search_operator)
-
-                    mh.apply_search_operator(perturbators[0], selectors[0])
-
-                    # Extract the population and fitness values, and their best values
-                    # May the fitness change? Oui. This is a probability trade-off
-                    best_fitness.append(np.copy(mh.pop.global_best_fitness))
-                    best_position.append(np.copy(mh.pop.rescale_back(mh.pop.global_best_position)))
-                    fitness_data.append(np.copy(mh.pop.fitness))
-                    positions_data.append(np.copy(mh.pop.get_positions()))
-
-                    # Update the overflow flag and reset stagnation counter
-                    trial_overflow = False
-                    stag_counter = 0
-                    step += 1
-
-                    # Add improvement mark
-                    if self.parameters['verbose']:
-                        print('✅', end='\n')
-
-                else:
-                    # Update stagnation
-                    stag_counter += 1
-
-                    # Add no improvement mark
-                    if self.parameters['verbose']:
-                        print('', end='\n')
-
-            # Print the best one
-            if self.parameters['verbose']:
-                print('\nBest fitness: {},\nBest position: {}'.format(current_fitness, current_position))
-
-            #  Update the repetition register
-            sequence_per_repetition.append(np.double(unfolded_metaheuristic).astype(int).tolist())
-            fitness_per_repetition.append(np.double(best_fitness).tolist())
-
-        # Refine the achieved sequence
-        self.__current_sequence = unfolded_metaheuristic
-        fitness_static, sequence_static = self._solve_static_translearn()
-
-        # Return the best solution found and its details
-        return fitness_per_repetition, sequence_per_repetition  #, weights_per_repetition, weight_matrix
 
     def _solve_dynamic(self, save_steps = True):
         """
@@ -1248,33 +955,6 @@ class Hyperheuristic:
         return self.get_performance(fitness_stats), dict(
             historical=historical_data, fitness=fitness_data, positions=position_data, statistics=fitness_stats)
 
-    def brute_force(self):
-        """
-        This method performs a brute force procedure solving the problem via all the available search operators without
-        integrating a high-level search method. So, each search operator is used as a 1-cardinality metaheuristic.
-        Results are directly saved as json files
-
-        :return: None.
-        """
-        # Apply all the search operators in the collection as 1-cardinality MHs
-        for operator_id in range(self.num_operators):
-            # Read the corresponding operator
-            operator = [self.heuristic_space[operator_id]]
-
-            # Evaluate it within the metaheuristic structure
-            operator_performance, operator_details = self.evaluate_candidate_solution(operator)
-
-            # Save information
-            _save_step(operator_id, {
-                'encoded_solution': operator_id,
-                'performance': operator_performance,
-                'statistics': operator_details['statistics']
-            }, self.file_label)
-
-            # Print update
-            print('{} :: Operator {} of {}, Perf: {}'.format(
-                self.file_label, operator_id + 1, self.num_operators, operator_performance))
-
     def basic_metaheuristics(self):
         """
         This method performs a brute force procedure solving the problem via all the predefined metaheuristics in
@@ -1348,16 +1028,6 @@ class Hyperheuristic:
                     Med=np.median(raw_data),
                     MAD=st.median_abs_deviation(raw_data))
 
-    # Script for interpolating matrices
-    @staticmethod
-    def __interpolate_matrices(matrix1, matrix2, blend_factor=0.5):
-        return matrix1 * (1 - blend_factor) + matrix2 * blend_factor
-
-    # Script for determining the dimensionless point to interpolate
-    @staticmethod
-    def __get_blend_factor(extrema, point):
-        return (point - extrema[0]) / (extrema[1] - extrema[0])
-
     def _get_sample_sequences(self, sample_params):
         """
         Retrieve or generate sequences to use them as data train in _solve_neural_network
@@ -1425,85 +1095,7 @@ class Hyperheuristic:
     
         return seqfitness, seqrep
 
-    def _get_weight_matrix(self, category, values_dict, file_path="./data_files/translearn_dataset.json"):
-
-        # Load the datafile
-        dataset = pd.read_json(file_path, dtype=[int, int, str, np.ndarray])
-        # category = 0, values_dict = {"Dim": 3, "Pop": 31}
-
-        # Check if the values are in the list, then return a list with its neighbours
-        limits = dict()
-        for key, val in values_dict.items():
-            available_values = dataset[key].unique().tolist()
-            if val not in available_values:
-                # TODO: improve for extrapolations
-                available_values.append(val)
-                available_values.sort()
-                index = available_values.index(val)
-                limits_values = available_values[index - 1:index + 2:2]
-            else:
-                limits_values = [val]
-
-            limits[key] = limits_values
-            # print(limits)
-
-        comb = [*product(*limits.values())]
-        num_comb = len(comb)
-        # Read matrices
-        matrices = list()
-        # It is liaised to the ordering
-        for pop_val, dim_val in comb:
-            matrices.append(np.array(*dataset[
-                (dataset['Dim'] == dim_val) &
-                (dataset['Pop'] == pop_val) &
-                (dataset['Cat'] == category)]['weights'].tolist()))
-            # print(dim_val, pop_val)
-
-        if num_comb == 1:
-            # Just pick up the corresponding matrix
-            out_matrix = matrices[0]
-        elif num_comb == 2:
-            # Find the intermediate factor to interpolate
-            if len(limits['Pop']) == 2:
-                factor = self.__get_blend_factor(limits['Pop'], values_dict['Pop'])
-            elif len(limits['Dim']) == 2:
-                factor = self.__get_blend_factor(limits['Dim'], values_dict['Dim'])
-            else:
-                factor = None
-                raise HyperheuristicError("Invalid case for determining factor")
-
-            # Perform one interpolation
-            out_matrix = self.__interpolate_matrices(matrices[0], matrices[1], factor)
-
-        elif num_comb == 4:
-            # Find the corresponding factors
-            pop_factor = self.__get_blend_factor(limits['Pop'], values_dict['Pop'])
-            dim_factor = self.__get_blend_factor(limits['Dim'], values_dict['Dim'])
-
-            # Perform two pre-interpolations with pop values
-            prematrix_pop1 = self.__interpolate_matrices(matrices[0], matrices[1], pop_factor)
-            prematrix_pop2 = self.__interpolate_matrices(matrices[2], matrices[3], pop_factor)
-
-            # Perform the last interpolation with dim values
-            out_matrix = self.__interpolate_matrices(prematrix_pop1, prematrix_pop2, dim_factor)
-        else:
-            out_matrix = None
-            raise HyperheuristicError("Invalid case for the number of combinations")
-
-        # Adjusting the matrix to avoid values out of range
-        total_count_per_step = out_matrix.sum(1)
-        out_weights = (out_matrix.T / total_count_per_step).T
-
-        return np.array(out_weights)
-
     def _update_weights(self, sequences=None):
-        # *** uncomment when necessary
-        # if not (isinstance(sequences, list) and isinstance(sequences[0], list)):
-        #     sequences = [sequences]
-        #
-        # if not (isinstance(fitness_values, list) and isinstance(fitness_values[0], list)):
-        #     fitness_values = [fitness_values]
-
         if (self.weights is None) or (len(sequences) < int(self.parameters['num_replicas'] *
                                                            self.parameters['learning_portion']
                                                            ) if sequences is not None else False):
@@ -1511,10 +1103,6 @@ class Hyperheuristic:
             self.weights = np.ones(self.num_operators) / self.num_operators
             self.__total_count_weights = self.num_operators
         else:
-            # update the array [q.count(x) for x in range(min(q), 1 + max(q))]
-            # pre_weights = list()
-            # weimat = np.zeros([self.num_operators + 1] * 2)
-
             # Get the matrix from sequences of num_operators -by- num_steps. Empties are filled with -2
             max_length = max([len(seq) for seq in sequences])
             mat_seq = np.array([np.array([*seq, *[-2] * (max_length - len(seq))]) for seq in sequences],
@@ -1532,23 +1120,6 @@ class Hyperheuristic:
                     current_hist.append(np.ndarray.tolist(np.ones(self.num_operators) / self.num_operators))
 
             self.transition_matrix = np.array(current_hist)
-
-            # weights_to_update = np.array(pre_weights).sum(axis=0) + self.weights * self.__total_count_weights
-            # self.__total_count_weights = weights_to_update.sum()
-            # weights_array = weights_to_update / self.__total_count_weights
-
-            # return weights_array
-
-    def __check_learnt_dataset(self):
-        if self.parameters['learnt_dataset']:
-            return self._get_weight_matrix(
-                category=self.problem['features'],
-                values_dict={'Pop': self.parameters['num_agents'],
-                             'Dim': self.problem['dimensions']},
-                file_path=self.parameters['learnt_dataset'])
-        else:
-            raise HyperheuristicError("learnt_dataset is required for using this method")
-
 
 # %% ADDITIONAL TOOLS
 
