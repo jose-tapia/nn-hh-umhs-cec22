@@ -38,6 +38,7 @@ Then, you have the data result files.
 ## Contact information
 
 José Manuel Tapia-Avitia - [A00834191@tec.mx](mailto:A00834191@tec.mx)
+
 Jorge M. Cruz-Duarte - [jcrvz.co](https://jcrvz.co), [jorge.cruz@tec.mx](mailto:jorge.cruz@tec.mx)
 
 Distributed under the MIT license. See [LICENSE](./LICENSE) for more information.
