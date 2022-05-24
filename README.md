@@ -6,7 +6,7 @@ Authors: _José Manuel Tapia-Avitia, Jorge M. Cruz-Duarte, Ivan Amaya, José Car
 
 ## Important
 
-Due to the file size limitation of GitHub, we provided the resulting data files in split zip files into [data_files](./data_files): `exp_output.zip`, `exp_output.z01`, `exp_output.z02`. So, after cloning this repository, you must follow the steps below in your terminal.
+Due to the file size limitation of GitHub, we provided the resulting data files in split zip files into [data_files](./data_files): `exp_output.zip`, `exp_output.z01`, `exp_output.z02`, ..., `exp_output.z14`. So, after cloning this repository, you must follow the steps below in your terminal.
 1. Go to the `nn-hh-umhs-cec22/data_files` folder:
 ```shell
 cd data_files
