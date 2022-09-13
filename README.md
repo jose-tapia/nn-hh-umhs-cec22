@@ -27,7 +27,8 @@ Then, you have the data result files.
 - Standard modules: os, matplotlib, numpy, pandas, scipy.stats, seaborn, tensorflow
 
 ## Files
-- **Main notebook**: [processing_results_nnhh.ipynb](./processing_results_nnhh.ipynb)
+- **Main figures notebook**: [processing_results_nnhh.ipynb](./processing_results_nnhh.ipynb)
+- **Experiment notebook**: [google_colab_notebook_CUSTOMHyS.ipynb](./google_colab_notebook_CUSTOMHyS.ipynb); Description of the experiment configuration files and a brief tutorial to run the modules in google colab ([Google Colab notebook](https://colab.research.google.com/drive/1NI7FM0XU3ldRrd9bcnLGgPFS7e0tmEZZ?usp=sharing))
 - Results from the proposed approaches (_this folder will be available once unzip exp_output files_): [data_files/exp_output](./data_files/exp_output)
 - Raw figures generated from the main notebook: [data_files/exp_figures](./data_files/exp_figures)
 - Experimental configurations used in this work: [exconf](./exconf)
